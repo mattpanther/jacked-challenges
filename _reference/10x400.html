@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AX Challenge Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Import Tone.js for the timer chime -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Google Identity Services SDK for sign-in -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #E0E0E0;
+            /* Prevent content from hiding under sticky bottom bar */
+            padding-bottom: 220px;
+        }
+
+        .card {
+            background-color: #1A1A1A;
+            border: 1px solid #333;
+        }
+
+        .btn-red {
+            background-color: #D90000;
+            color: #FFFFFF;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .btn-red:active { background-color: #B30000; }
+
+        .btn-blue {
+            background-color: #00B2D9;
+            color: #FFFFFF;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .btn-blue:active { background-color: #0091B3; }
+
+        .btn-gray {
+            background-color: #4A4A4A;
+            color: #E0E0E0;
+            transition: background-color 0.2s;
+        }
+        .btn-gray:active { background-color: #666666; }
+
+        .btn-green {
+            background-color: #00A65A;
+            color: #FFFFFF;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .btn-green:active { background-color: #008749; }
+
+        .form-input {
+            background-color: #333;
+            border: 1px solid #555;
+            color: #FFFFFF;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #00B2D9;
+            box-shadow: 0 0 0 2px rgba(0, 178, 217, 0.5);
+        }
+
+        .text-ax-blue { color: #00B2D9; }
+        .text-ax-red { color: #D90000; }
+        .text-ax-green { color: #00A65A; }
+
+        /* Tab styles */
+        .tab-btn {
+            background-color: #333;
+            color: #AAA;
+            border: 1px solid #555;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background-color: #D90000;
+            color: #FFFFFF;
+            border-color: #D90000;
+            font-weight: bold;
+        }
+
+        /* Progress dots */
+        .progress-dot {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 2px solid #555;
+            background-color: #222;
+            transition: all 0.3s;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .progress-dot.success { background-color: #00A65A; border-color: #00A65A; }
+        .progress-dot.fail { background-color: #D90000; border-color: #D90000; }
+        .progress-dot.retry { background-color: #FAA61A; border-color: #FAA61A; }
+
+        /* Dot swell animation — dramatic celebration */
+        @keyframes dot-swell {
+            0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 166, 90, 0.8); filter: brightness(1); }
+            15%  { transform: scale(2.2); box-shadow: 0 0 30px 10px rgba(0, 166, 90, 0.6); filter: brightness(1.8); }
+            30%  { transform: scale(1.6); box-shadow: 0 0 20px 6px rgba(0, 166, 90, 0.4); filter: brightness(1.3); }
+            45%  { transform: scale(1.9); box-shadow: 0 0 25px 8px rgba(0, 166, 90, 0.3); filter: brightness(1.5); }
+            65%  { transform: scale(1.1); box-shadow: 0 0 10px 3px rgba(0, 166, 90, 0.2); filter: brightness(1.1); }
+            80%  { transform: scale(1.3); box-shadow: 0 0 8px 2px rgba(0, 166, 90, 0.1); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 166, 90, 0); filter: brightness(1); }
+        }
+        /* Shockwave ring burst */
+        @keyframes dot-ring {
+            0%   { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(0, 166, 90, 0.9); }
+            50%  { transform: scale(2.5); opacity: 0.5; box-shadow: 0 0 0 6px rgba(0, 166, 90, 0.3); }
+            100% { transform: scale(3.5); opacity: 0; box-shadow: 0 0 0 10px rgba(0, 166, 90, 0); }
+        }
+        .progress-dot.swell {
+            animation: dot-swell 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            z-index: 5;
+        }
+        .progress-dot.swell::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 166, 90, 0.7);
+            animation: dot-ring 0.8s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes dot-swell-fail {
+            0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(217, 0, 0, 0.8); }
+            20%  { transform: scale(1.8); box-shadow: 0 0 20px 6px rgba(217, 0, 0, 0.5); }
+            40%  { transform: scale(1.2); }
+            60%  { transform: scale(1.5); box-shadow: 0 0 12px 4px rgba(217, 0, 0, 0.3); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(217, 0, 0, 0); }
+        }
+        .progress-dot.swell-fail { animation: dot-swell-fail 0.8s ease-out forwards; }
+
+        /* Station cards — focus mode */
+        .station-chip {
+            background-color: #1A1A1A;
+            border: 1px solid #333;
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            cursor: default;
+            transition: all 0.2s;
+        }
+        .station-chip.completed { border-color: #00A65A; }
+        .station-chip.failed { border-color: #D90000; }
+        .station-chip.active { border-color: #00B2D9; box-shadow: 0 0 10px rgba(0,178,217,0.15); }
+
+        /* Active station card */
+        .active-station-card {
+            background-color: #111;
+            border: 1px solid #00B2D9;
+            border-radius: 0.75rem;
+            box-shadow: 0 0 20px rgba(0,178,217,0.1);
+        }
+
+        /* Sticky bottom input bar */
+        #sticky-input-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: rgba(10,10,10,0.97);
+            border-top: 1px solid #00B2D9;
+            padding: 12px 16px 16px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Weight stepper */
+        .stepper-btn {
+            width: 40px;
+            height: 44px;
+            border-radius: 0.375rem;
+            background: #333;
+            color: #fff;
+            font-size: 1.25rem;
+            font-weight: bold;
+            border: 1px solid #555;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .stepper-btn:active {
+            background: #00B2D9;
+            border-color: #00B2D9;
+        }
+
+        /* Rep quick-tap buttons — large touch targets */
+        .rep-btn {
+            min-width: 56px;
+            height: 56px;
+            border-radius: 0.625rem;
+            background: #222;
+            border: 2px solid #444;
+            color: #ccc;
+            font-size: 1.35rem;
+            font-weight: bold;
+            transition: all 0.15s;
+            flex: 1 1 auto;
+        }
+        .rep-btn:active, .rep-btn.selected {
+            background: #00B2D9;
+            border-color: #00B2D9;
+            color: #fff;
+        }
+        .rep-btn.success-rep {
+            background: #00A65A22;
+            border-color: #00A65A88;
+            color: #00A65A;
+        }
+        .rep-btn.success-rep.selected, .rep-btn.success-rep:active {
+            background: #00A65A;
+            border-color: #00A65A;
+            color: #fff;
+        }
+
+        /* LOG button */
+        #log-set-btn {
+            height: 52px;
+            font-size: 1.2rem;
+            letter-spacing: 0.05em;
+            border-radius: 0.5rem;
+            transition: all 0.15s;
+        }
+        #log-set-btn:active {
+            transform: scale(0.97);
+        }
+
+        /* Timer overlay */
+        /* Inline timer area */
+        .inline-timer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1.25rem 0;
+        }
+        .inline-timer-display {
+            font-size: 5rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: #00B2D9;
+            transition: color 0.3s;
+            line-height: 1.1;
+        }
+        .inline-timer-display.urgent { color: #D90000; }
+
+        @keyframes timer-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .timer-pulsing { animation: timer-pulse 1s ease-in-out infinite; }
+
+        /* Skip button inside card */
+        .skip-rest-btn {
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 0.375rem;
+            padding: 0.375rem 1rem;
+            color: #aaa;
+            font-size: 0.75rem;
+            font-weight: bold;
+            transition: all 0.15s;
+        }
+        .skip-rest-btn:active { background: #555; color: #fff; }
+
+        /* Dot tooltip */
+        .dot-tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #222;
+            border: 1px solid #444;
+            color: #eee;
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            font-size: 0.7rem;
+            pointer-events: none;
+            z-index: 10;
+            display: none;
+        }
+        .progress-dot:hover .dot-tooltip,
+        .progress-dot:active .dot-tooltip { display: block; }
+        .progress-dot { position: relative; }
+
+        /* Instructions modal */
+        #instructions-modal {
+            backdrop-filter: blur(5px);
+        }
+
+        /* Archive Styles */
+        details>summary { list-style: none; cursor: pointer; }
+        details>summary::-webkit-details-marker { display: none; }
+
+        /* Smooth collapse */
+        .station-chip-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+
+        /* ======= Compact phone layout (Pixel 10 Pro and similar) ======= */
+        @media (max-width: 430px) {
+            .progress-dot { width: 20px; height: 20px; }
+            .inline-timer { padding: 0.75rem 0; }
+            .inline-timer-display { font-size: 3.5rem; }
+            #sticky-input-bar { padding: 8px 12px 12px; }
+            .rep-btn { height: 48px; font-size: 1.2rem; min-width: 48px; }
+            #log-set-btn { height: 46px; font-size: 1.1rem; }
+            .stepper-btn { width: 36px; height: 40px; }
+        }
+
+        /* ======= Tablet landscape (Pixel Tablet and similar) ======= */
+        @media (min-width: 800px) and (orientation: landscape) {
+            body { padding-bottom: 16px !important; }
+
+            .max-w-2xl { margin-right: 340px; }
+
+            #sticky-input-bar {
+                position: fixed;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                left: auto;
+                width: 320px;
+                border-top: none;
+                border-left: 1px solid #00B2D9;
+                padding: 1.5rem;
+                display: flex !important;
+                flex-direction: column;
+                justify-content: center;
+            }
+            #sticky-input-bar.hidden {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-black text-gray-200 p-3 pt-4">
+    <div class="max-w-2xl mx-auto">
+
+        <!-- Header -->
+        <header class="text-center mb-4 relative">
+            <h1 class="text-2xl font-bold text-white">
+                <span class="text-ax-red">"10 BY"</span> <span id="challenge-title">400 CHALLENGE</span>
+            </h1>
+            <!-- Help button -->
+            <button id="open-instructions" class="absolute right-0 top-1 w-8 h-8 rounded-full bg-gray-800 border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 flex items-center justify-center text-sm font-bold transition-all" title="Instructions">?</button>
+        </header>
+
+        <!-- Workout Selection -->
+        <div class="card rounded-lg p-3 mb-4">
+            <div id="workout-tabs" class="grid grid-cols-2 gap-2">
+                <button class="tab-btn rounded-md py-2.5 active" data-view="challenge">ACTIVE CHALLENGE</button>
+                <button class="tab-btn rounded-md py-2.5" data-view="archive">ARCHIVE</button>
+            </div>
+        </div>
+
+        <!-- Score Board (sticky) -->
+        <div class="card rounded-lg p-3 mb-4 sticky top-2 z-20 shadow-xl border-b-2 border-gray-700">
+            <div class="flex justify-around items-center text-center">
+                <!-- Score -->
+                <div>
+                    <div class="text-xs text-gray-400 uppercase">Score</div>
+                    <div id="total-score" class="text-3xl font-bold text-ax-red">0<span class="text-sm text-gray-500">/40</span></div>
+                </div>
+                <!-- Current Exercise -->
+                <div id="current-exercise-label" class="hidden text-center">
+                    <div class="text-xs text-gray-400 uppercase">Now</div>
+                    <div class="text-sm font-bold text-ax-blue" id="current-exercise-name">—</div>
+                </div>
+                <!-- Set Progress -->
+                <div id="set-progress-label" class="hidden text-center">
+                    <div class="text-xs text-gray-400 uppercase">Set</div>
+                    <div class="text-sm font-bold text-white" id="set-progress-text">—</div>
+                </div>
+                <!-- Auth -->
+                <div id="auth-status" class="text-xs text-gray-600 flex items-center gap-1">
+                    <span id="auth-text">Connecting...</span>
+                    <button id="google-sign-in"
+                        class="hidden text-xs bg-white text-gray-800 px-2 py-1 rounded font-bold border border-gray-300 hover:bg-gray-100 transition-colors flex items-center gap-1">
+                        <svg class="w-3 h-3" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                        </svg>
+                        Save
+                    </button>
+                    <button id="google-sign-out" class="hidden text-xs text-gray-400 hover:text-white underline">Sign Out</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Workout Area -->
+        <div id="main-workout-area">
+
+            <!-- Ignitor Sets -->
+            <div class="card rounded-lg p-4 mb-4">
+                <button id="toggle-ignitor" class="flex justify-between items-center w-full text-left">
+                    <h2 class="text-base font-semibold text-white">Part 1: Ignitor Sets</h2>
+                    <span class="text-ax-blue text-sm" id="ignitor-toggle-text">Show</span>
+                </button>
+                <div id="ignitor-content" class="hidden mt-4">
+                    <p class="text-xs text-gray-400 mb-3">1 set to failure — determine your working weight (14-16 RM, or 7-8 RM for Rows).</p>
+                    <form id="ignitor-form" class="space-y-3"></form>
+                </div>
+            </div>
+
+            <!-- Station Chips (completed/pending overview) -->
+            <div id="station-chips-area" class="station-chip-area mb-4"></div>
+
+            <!-- Active Station Focus Card -->
+            <div id="active-station-wrapper">
+                <!-- Injected by renderStations() -->
+            </div>
+
+        </div>
+
+        <!-- Archive Log Area -->
+        <div id="archive-log-area" class="hidden mb-6">
+            <div class="card rounded-lg p-4">
+                <h2 class="text-lg font-semibold text-white mb-4">Workout Archive</h2>
+                <div id="archive-log-container" class="space-y-4"></div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div id="controls-area" class="flex flex-col gap-3 mt-6">
+            <div class="grid grid-cols-2 gap-3">
+                <button id="archive-workout" class="btn-green rounded-lg py-3 px-4 w-full text-sm font-bold">Finish &amp; Archive</button>
+                <button id="reset-workout" class="btn-gray rounded-lg py-3 px-4 w-full text-sm">Reset Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timer is now rendered inline inside active station card by JS -->
+
+    <!-- STICKY BOTTOM INPUT BAR -->
+    <div id="sticky-input-bar" class="hidden">
+        <!-- Set label row -->
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-bold text-white" id="sticky-set-label">Set 1</span>
+            <span id="sticky-retry-warning" class="hidden text-xs text-ax-red font-bold">⚠ Retry — fail ends exercise</span>
+            <span class="text-xs text-gray-500">Goal: 10 reps</span>
+        </div>
+
+        <!-- Weight row: stepper + display -->
+        <div class="flex items-center gap-2 mb-2">
+            <button class="stepper-btn" id="weight-minus">−</button>
+            <div class="flex-1 relative">
+                <input type="number" id="sticky-weight" class="form-input w-full text-center text-lg font-bold" placeholder="lbs" inputmode="decimal">
+            </div>
+            <button class="stepper-btn" id="weight-plus">+</button>
+            <span class="text-xs text-gray-500 w-6">lbs</span>
+        </div>
+
+        <!-- Rep quick-tap row -->
+        <div class="flex flex-wrap gap-2 mb-2" id="rep-buttons">
+            <!-- Populated by JS -->
+        </div>
+
+        <!-- LOG button -->
+        <button id="log-set-btn" class="btn-blue w-full font-bold">LOG SET</button>
+    </div>
+
+    <!-- Instructions Modal -->
+    <div id="instructions-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-lg p-6 max-w-sm w-full shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-white">How It Works</h2>
+                <button id="close-instructions" class="text-gray-500 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <ul class="text-sm text-gray-300 space-y-2 list-disc pl-4">
+                <li>Complete <strong>10 sets of 10 reps</strong> per exercise, then move on.</li>
+                <li>Rest exactly <strong>1 minute</strong> between successful sets.</li>
+                <li>If you fail (&lt;10 reps), rest <strong>90 seconds</strong> and Retry.</li>
+                <li>Fail the Retry → exercise is <strong>Over</strong>. Move to next.</li>
+                <li>Rest <strong>5 minutes</strong> between exercises.</li>
+            </ul>
+            <button id="close-instructions-btn" class="mt-5 btn-blue w-full rounded-lg py-2.5 font-bold text-sm">Got it</button>
+        </div>
+    </div>
+
+    <!-- Setup Modal -->
+    <div id="setup-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-lg p-6 max-w-md w-full shadow-2xl">
+            <h2 class="text-2xl font-bold text-white mb-4">Setup Required</h2>
+            <p class="text-gray-300 mb-4 text-sm">To run this app on GitHub Pages, you need to connect your own Firebase database.</p>
+            <ol class="list-decimal pl-5 text-sm text-gray-400 mb-6 space-y-2">
+                <li>Go to the <a href="https://console.firebase.google.com/" target="_blank" class="text-ax-blue underline">Firebase Console</a>.</li>
+                <li>Create a project and add a Web App.</li>
+                <li>Copy the <code>firebaseConfig</code> object.</li>
+                <li>Open this HTML file in a text editor.</li>
+                <li>Find the <code>MANUAL_FIREBASE_CONFIG</code> variable and paste your config there.</li>
+                <li>Save and refresh this page.</li>
+            </ol>
+            <div class="text-center text-xs text-gray-500">You also need to enable <strong>Authentication</strong> (Anonymous) and <strong>Firestore</strong>.</div>
+        </div>
+    </div>
+
+    <!-- Firebase & App Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithCredential, linkWithCredential } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- FIREBASE CONFIGURATION ---
+        const MANUAL_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyA" + "_ajqyKXXOiKeHa3oc7QpMn9h3jO7WhJ8",
+            authDomain: "jacked-10by400.firebaseapp.com",
+            projectId: "jacked-10by400",
+            storageBucket: "jacked-10by400.firebasestorage.app",
+            messagingSenderId: "670451147396",
+            appId: "1:670451147396:web:d9aaaf663aa227142898d1"
+        };
+
+        // Google OAuth Web Client ID — find it at:
+        // Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs > "Web client (auto created by Google Service)"
+        const GOOGLE_CLIENT_ID = '670451147396-b7rv5vtuk5bidobn6qlddnj2erq51e0b.apps.googleusercontent.com';
+
+        // --- Constants ---
+        const EXERCISE_DEFS = [
+            { id: 'thrusters', label: 'DB Thrusters', type: '14-16 RM' },
+            { id: 'rows', label: 'DB Renegade Rows', type: '7-8 RM' },
+            { id: 'press', label: 'DB Floor Press', type: '14-16 RM' },
+            { id: 'highpull', label: 'DB Power High Pull', type: '14-16 RM' }
+        ];
+
+        // --- App State ---
+        let db, auth, userId, dbDocRef;
+        let appState = {
+            view: 'challenge',
+            ignitor: {},
+            stations: {
+                thrusters: { sets: [], status: 'active' },
+                rows: { sets: [], status: 'pending' },
+                press: { sets: [], status: 'pending' },
+                highpull: { sets: [], status: 'pending' }
+            },
+            archive: []
+        };
+        let unsubscribe = () => { };
+
+        // --- Timer State ---
+        let timerId = null;
+        let timerEndTime = 0;
+        let synth;
+
+        // --- Active exercise ID (for sticky bar) ---
+        let activeExId = null;
+        let selectedReps = null;
+
+        // --- Dynamic body padding to match sticky bar height ---
+        const updateBodyPadding = () => {
+            // Skip in landscape tablet mode (handled by CSS)
+            if (window.matchMedia('(min-width: 800px) and (orientation: landscape)').matches) return;
+            const bar = document.getElementById('sticky-input-bar');
+            if (bar && !bar.classList.contains('hidden')) {
+                document.body.style.paddingBottom = (bar.offsetHeight + 24) + 'px';
+            } else {
+                document.body.style.paddingBottom = '16px';
+            }
+        };
+        window.addEventListener('resize', updateBodyPadding);
+
+        // --- Helper: Debounce ---
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), wait);
+            };
+        }
+
+        // --- Start App ---
+        async function startApp() {
+            try {
+                const saveState = async () => {
+                    if (!dbDocRef) return;
+                    try { await setDoc(dbDocRef, appState, { merge: true }); }
+                    catch (error) { console.error("Error saving state: ", error); }
+                };
+                const debouncedSaveState = debounce(saveState, 1000);
+
+                // =============================================
+                // RENDER: Ignitor
+                // =============================================
+                const renderIgnitor = () => {
+                    const container = document.getElementById('ignitor-form');
+                    container.innerHTML = '';
+                    // Find most recent archive entry for history
+                    const lastArchive = (appState.archive && appState.archive.length > 0) ? appState.archive[0] : null;
+                    EXERCISE_DEFS.forEach((ex) => {
+                        const data = appState.ignitor[ex.id] || { weight: '', reps: '' };
+                        const prev = lastArchive?.ignitor?.[ex.id];
+                        const historyLabel = (prev && (prev.weight || prev.reps))
+                            ? `<button class="ignitor-history-btn text-xs text-ax-blue mt-0.5 cursor-pointer hover:underline" data-id="${ex.id}" data-weight="${prev.weight || ''}" data-reps="${prev.reps || ''}">Last: ${prev.weight || '-'}lbs × ${prev.reps || '-'}</button>`
+                            : '';
+                        container.innerHTML += `
+                            <div class="grid grid-cols-3 gap-3 items-center border-b border-gray-800 pb-3 last:border-0">
+                                <div>
+                                    <label class="text-gray-300 text-sm font-bold block">${ex.label}</label>
+                                    <span class="text-xs text-gray-500">${ex.type}</span>
+                                    ${historyLabel}
+                                </div>
+                                <input type="number" class="ignitor-input form-input text-center" placeholder="Lbs"
+                                    data-id="${ex.id}" data-field="weight" value="${data.weight}" inputmode="decimal">
+                                <input type="number" class="ignitor-input form-input text-center" placeholder="Reps"
+                                    data-id="${ex.id}" data-field="reps" value="${data.reps}" inputmode="numeric">
+                            </div>
+                        `;
+                    });
+                    document.querySelectorAll('.ignitor-input').forEach(input => {
+                        input.addEventListener('input', (e) => {
+                            const id = e.target.dataset.id;
+                            const field = e.target.dataset.field;
+                            if (!appState.ignitor[id]) appState.ignitor[id] = {};
+                            appState.ignitor[id][field] = e.target.value;
+                            debouncedSaveState();
+                        });
+                    });
+                    // Click-to-fill from history
+                    document.querySelectorAll('.ignitor-history-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const id = btn.dataset.id;
+                            const w = btn.dataset.weight;
+                            const r = btn.dataset.reps;
+                            if (!appState.ignitor[id]) appState.ignitor[id] = {};
+                            if (w) appState.ignitor[id].weight = w;
+                            if (r) appState.ignitor[id].reps = r;
+                            debouncedSaveState();
+                            renderIgnitor();
+                        });
+                    });
+                };
+
+                // =============================================
+                // RENDER: Stations (focus mode)
+                // =============================================
+                const renderStations = () => {
+                    const chipsArea = document.getElementById('station-chips-area');
+                    const activeWrapper = document.getElementById('active-station-wrapper');
+                    chipsArea.innerHTML = '';
+                    activeWrapper.innerHTML = '';
+
+                    activeExId = null;
+
+                    EXERCISE_DEFS.forEach((ex) => {
+                        const stationData = appState.stations[ex.id];
+                        const sets = stationData.sets || [];
+                        const successCount = sets.filter(s => s.reps >= 10).length;
+
+                        if (stationData.status === 'active') {
+                            activeExId = ex.id;
+                            renderActiveStation(ex, stationData, activeWrapper);
+                        } else {
+                            // Render as compact chip
+                            const chipEl = document.createElement('div');
+                            chipEl.className = `station-chip ${stationData.status}`;
+                            const statusIcon = stationData.status === 'completed' ? '✓' : (stationData.status === 'failed' ? '✗' : '○');
+                            const statusColor = stationData.status === 'completed' ? 'text-ax-green' : (stationData.status === 'failed' ? 'text-ax-red' : 'text-gray-500');
+                            chipEl.innerHTML = `
+                                <span class="${statusColor} font-bold">${statusIcon}</span>
+                                <span class="text-gray-300">${ex.label}</span>
+                                ${stationData.status !== 'pending' ? `<span class="ml-auto font-bold ${statusColor}">${successCount}/10</span>` : ''}
+                            `;
+                            chipsArea.appendChild(chipEl);
+                        }
+                    });
+
+                    updateTotalScore();
+                    renderStickyBar();
+                    updateBodyPadding();
+                };
+
+                const renderActiveStation = (ex, stationData, container) => {
+                    const sets = stationData.sets || [];
+                    const successCount = sets.filter(s => s.reps >= 10).length;
+                    const showInput = successCount < 10;
+
+                    // Check retry state
+                    const lastSet = sets.length > 0 ? sets[sets.length - 1] : null;
+                    const isRetry = lastSet && lastSet.reps < 10 && !lastSet.retryAttempt;
+
+                    // Build progress dots
+                    const successSets = sets.filter(s => s.reps >= 10);
+                    let dotHTML = '<div class="flex gap-2 flex-wrap justify-center" id="progress-dots">';
+                    for (let i = 0; i < 10; i++) {
+                        const s = successSets[i];
+                        const tooltip = s ? `${s.weight}lbs × ${s.reps}` : `Set ${i + 1}`;
+                        dotHTML += `<div class="progress-dot ${s ? 'success' : ''}" data-dot-index="${i}" title="${tooltip}"></div>`;
+                    }
+                    // Failure dots
+                    sets.filter(s => s.reps < 10).forEach(s => {
+                        const cls = s.retryAttempt ? 'fail' : 'retry';
+                        dotHTML += `<div class="progress-dot ${cls}" title="${s.weight}lbs × ${s.reps} (${s.retryAttempt ? 'Retry fail' : 'Failed'})"></div>`;
+                    });
+                    dotHTML += '</div>';
+
+                    // Compact set history (last 2)
+                    const recentSets = sets.slice(-2);
+                    let historyHTML = '';
+                    if (recentSets.length > 0) {
+                        historyHTML = '<div class="mt-3">';
+                        if (sets.length > 2) historyHTML += `<p class="text-xs text-gray-600 mb-1">+${sets.length - 2} earlier</p>`;
+                        recentSets.forEach((s, i) => {
+                            const actualIndex = sets.length - recentSets.length + i;
+                            const isSuccess = s.reps >= 10;
+                            const label = isSuccess ? '✓' : (s.retryAttempt ? '✗' : '↻');
+                            const color = isSuccess ? 'text-ax-green' : (s.retryAttempt ? 'text-ax-red' : 'text-yellow-500');
+                            historyHTML += `<div class="flex justify-between items-center text-xs py-1 border-b border-gray-800"><span class="text-gray-500">Set ${actualIndex + 1}${s.retryAttempt ? ' (Retry)' : ''}</span><span class="text-gray-300 font-mono">${s.weight}lbs × ${s.reps}</span><span class="${color} font-bold">${label}</span></div>`;
+                        });
+                        historyHTML += '</div>';
+                    }
+
+                    const manualFinishHTML = (stationData.status === 'active' && !showInput) ?
+                        `<button class="btn-green w-full mt-4 py-3 rounded-lg font-bold text-sm" onclick="window.handleNextStation('${ex.id}')">Move to Next Exercise →</button>` : '';
+
+                    // Inline timer area (shown when timer is running)
+                    const timerHTML = `
+                        <div class="inline-timer hidden" id="inline-timer">
+                            <div class="text-xs text-gray-400 uppercase tracking-widest mb-1" id="timer-label">Rest</div>
+                            <div class="inline-timer-display" id="timer-display">1:00</div>
+                            <button class="skip-rest-btn mt-2" id="stop-timer">Skip</button>
+                        </div>
+                    `;
+
+                    container.innerHTML = `
+                        <div class="active-station-card p-4 mb-4" id="card-${ex.id}">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <span class="text-xs text-ax-blue uppercase tracking-widest">Current Exercise</span>
+                                    <h3 class="text-xl font-bold text-white mt-0.5">${ex.label}</h3>
+                                    <span class="text-xs text-gray-500">${ex.type}</span>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-2xl font-bold text-ax-blue">${successCount}<span class="text-base text-gray-500">/10</span></div>
+                                    <div class="text-xs text-gray-500">sets done</div>
+                                </div>
+                            </div>
+                            ${dotHTML}
+                            ${timerHTML}
+                            ${historyHTML}
+                            ${manualFinishHTML}
+                        </div>
+                    `;
+
+                    // Re-attach stop-timer listener
+                    document.getElementById('stop-timer')?.addEventListener('click', stopTimer);
+
+                    // If timer is currently running, show the inline timer
+                    if (timerId) {
+                        document.getElementById('inline-timer')?.classList.remove('hidden');
+                    }
+
+                    // Update scoreboard header
+                    document.getElementById('current-exercise-label').classList.remove('hidden');
+                    document.getElementById('current-exercise-name').textContent = ex.label.replace('DB ', '');
+                    document.getElementById('set-progress-label').classList.remove('hidden');
+
+                    const nextSetNum = isRetry ? `Retry` : `${sets.length + 1}`;
+                    document.getElementById('set-progress-text').textContent = showInput ? nextSetNum : 'Done!';
+                };
+
+                const renderStickyBar = () => {
+                    const bar = document.getElementById('sticky-input-bar');
+
+                    if (!activeExId) {
+                        bar.classList.add('hidden');
+                        return;
+                    }
+
+                    const stationData = appState.stations[activeExId];
+                    const sets = stationData.sets || [];
+                    const successCount = sets.filter(s => s.reps >= 10).length;
+
+                    if (successCount >= 10 || stationData.status !== 'active') {
+                        bar.classList.add('hidden');
+                        return;
+                    }
+
+                    bar.classList.remove('hidden');
+
+                    const lastSet = sets.length > 0 ? sets[sets.length - 1] : null;
+                    const isRetry = lastSet && lastSet.reps < 10 && !lastSet.retryAttempt;
+
+                    // Set label
+                    const setLabel = document.getElementById('sticky-set-label');
+                    setLabel.textContent = isRetry ? '⚠ RETRY Attempt' : `Set ${sets.length + 1}`;
+                    setLabel.className = isRetry ? 'text-sm font-bold text-ax-red' : 'text-sm font-bold text-white';
+
+                    const retryWarning = document.getElementById('sticky-retry-warning');
+                    retryWarning.classList.toggle('hidden', !isRetry);
+
+                    // Pre-fill weight
+                    const weightInput = document.getElementById('sticky-weight');
+                    if (lastSet) {
+                        weightInput.value = lastSet.weight;
+                    } else if (appState.ignitor[activeExId]?.weight) {
+                        weightInput.value = appState.ignitor[activeExId].weight;
+                    }
+
+                    // Prepopulate reps from previous set
+                    if (lastSet && lastSet.reps >= 6 && lastSet.reps <= 12) {
+                        selectedReps = lastSet.reps;
+                    } else {
+                        selectedReps = null;
+                    }
+                    renderRepButtons();
+                };
+
+                const renderRepButtons = () => {
+                    const repContainer = document.getElementById('rep-buttons');
+                    const repValues = [6, 7, 8, 9, 10, 11, 12];
+                    repContainer.innerHTML = '';
+                    repValues.forEach(rep => {
+                        const btn = document.createElement('button');
+                        btn.className = `rep-btn ${rep >= 10 ? 'success-rep' : ''} ${selectedReps === rep ? 'selected' : ''}`;
+                        btn.textContent = rep;
+                        btn.addEventListener('click', () => {
+                            selectedReps = rep;
+                            renderRepButtons();
+                        });
+                        repContainer.appendChild(btn);
+                    });
+                };
+
+                // =============================================
+                // SCORE
+                // =============================================
+                const updateTotalScore = () => {
+                    let total = 0;
+                    Object.values(appState.stations).forEach(st => {
+                        total += st.sets.filter(s => s.reps >= 10).length;
+                    });
+                    document.getElementById('total-score').innerHTML = `${total}<span class="text-sm text-gray-500">/40</span>`;
+                };
+
+                // =============================================
+                // LOG SET
+                // =============================================
+                const handleLogSet = () => {
+                    if (!activeExId) return;
+
+                    const weight = parseFloat(document.getElementById('sticky-weight').value) || 0;
+                    const reps = selectedReps;
+
+                    if (!reps || reps <= 0) {
+                        // Flash the rep buttons to prompt selection
+                        const bar = document.getElementById('rep-buttons');
+                        bar.style.opacity = '0.4';
+                        setTimeout(() => bar.style.opacity = '1', 300);
+                        return;
+                    }
+
+                    const station = appState.stations[activeExId];
+                    const sets = station.sets;
+                    const isSuccess = reps >= 10;
+
+                    let isRetryAttempt = false;
+                    if (sets.length > 0) {
+                        const lastSet = sets[sets.length - 1];
+                        if (lastSet.reps < 10 && !lastSet.retryAttempt) {
+                            isRetryAttempt = true;
+                        }
+                    }
+
+                    sets.push({ weight, reps, retryAttempt: isRetryAttempt });
+                    selectedReps = null;
+
+                    // Track which dot index to animate
+                    const newSuccessCount = sets.filter(s => s.reps >= 10).length;
+
+                    if (isSuccess) {
+                        if (newSuccessCount >= 10) {
+                            station.status = 'completed';
+                            activateNextStation(activeExId);
+                        } else {
+                            startTimer(60, "Rest");
+                        }
+                    } else {
+                        if (isRetryAttempt) {
+                            station.status = 'failed';
+                            activateNextStation(activeExId);
+                        } else {
+                            startTimer(90, "Retry Rest");
+                        }
+                    }
+
+                    saveState();
+                    renderStations();
+
+                    // Animate the newly filled dot
+                    if (isSuccess && newSuccessCount <= 10) {
+                        const dotIndex = newSuccessCount - 1;
+                        const dot = document.querySelector(`[data-dot-index="${dotIndex}"]`);
+                        if (dot) {
+                            dot.classList.add('swell');
+                            // Confetti burst on milestone sets (5th and 10th)
+                            if (newSuccessCount === 5 || newSuccessCount === 10) {
+                                spawnConfetti(dot);
+                            }
+                        }
+                    } else if (!isSuccess) {
+                        // animate the fail dot (last one in the row)
+                        const failDots = document.querySelectorAll('.progress-dot.fail, .progress-dot.retry');
+                        const lastFailDot = failDots[failDots.length - 1];
+                        if (lastFailDot) lastFailDot.classList.add('swell-fail');
+                    }
+                };
+
+                // Confetti burst helper
+                const spawnConfetti = (anchor) => {
+                    const emojis = ['🎉', '🔥', '💪', '⭐', '✨', '🏆'];
+                    const rect = anchor.getBoundingClientRect();
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    for (let i = 0; i < 10; i++) {
+                        const el = document.createElement('div');
+                        el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                        el.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;font-size:${16 + Math.random()*12}px;pointer-events:none;z-index:100;transition:all 0.8s cubic-bezier(0.25,0.46,0.45,0.94);opacity:1;`;
+                        document.body.appendChild(el);
+                        const angle = (Math.PI * 2 * i) / 10 + (Math.random() - 0.5) * 0.5;
+                        const dist = 50 + Math.random() * 60;
+                        requestAnimationFrame(() => {
+                            el.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist - 30}px) scale(1.3) rotate(${Math.random()*360}deg)`;
+                            el.style.opacity = '0';
+                        });
+                        setTimeout(() => el.remove(), 1000);
+                    }
+                };
+
+                document.getElementById('log-set-btn').addEventListener('click', handleLogSet);
+
+                // =============================================
+                // WEIGHT STEPPERS
+                // =============================================
+                document.getElementById('weight-minus').addEventListener('click', () => {
+                    const input = document.getElementById('sticky-weight');
+                    const cur = parseFloat(input.value) || 0;
+                    input.value = Math.max(0, cur - 5);
+                });
+                document.getElementById('weight-plus').addEventListener('click', () => {
+                    const input = document.getElementById('sticky-weight');
+                    const cur = parseFloat(input.value) || 0;
+                    input.value = cur + 5;
+                });
+
+                // =============================================
+                // STATION FLOW
+                // =============================================
+                const activateNextStation = (currentExId) => {
+                    const currentIndex = EXERCISE_DEFS.findIndex(e => e.id === currentExId);
+                    if (currentIndex < EXERCISE_DEFS.length - 1) {
+                        const nextId = EXERCISE_DEFS[currentIndex + 1].id;
+                        appState.stations[nextId].status = 'active';
+                        startTimer(300, "Next Exercise");
+                    } else {
+                        stopTimer();
+                        showDoneState();
+                    }
+                };
+
+                const showDoneState = () => {
+                    // Show completion inline in the active wrapper
+                    const wrapper = document.getElementById('active-station-wrapper');
+                    if (wrapper) {
+                        wrapper.innerHTML = `
+                            <div class="active-station-card p-8 mb-4 text-center">
+                                <div class="text-5xl mb-3">🎉</div>
+                                <h3 class="text-2xl font-bold text-white">WORKOUT COMPLETE!</h3>
+                                <p class="text-ax-green mt-2">Great work! Archive your results below.</p>
+                            </div>
+                        `;
+                    }
+                };
+
+                window.handleNextStation = (exId) => {
+                    appState.stations[exId].status = 'completed';
+                    activateNextStation(exId);
+                    saveState();
+                    renderStations();
+                };
+
+                // =============================================
+                // TIMER (inline in active station card)
+                // =============================================
+                const startTimer = (seconds, label = "Rest") => {
+                    if (Tone.context.state !== 'running') Tone.context.resume().catch(e => console.log(e));
+
+                    const timerArea = document.getElementById('inline-timer');
+                    const display = document.getElementById('timer-display');
+                    const timerLabel = document.getElementById('timer-label');
+
+                    if (timerArea) {
+                        timerArea.classList.remove('hidden');
+                        timerLabel.textContent = label.toUpperCase();
+                        display.classList.remove('urgent', 'timer-pulsing');
+                    }
+
+                    timerEndTime = Date.now() + (seconds * 1000);
+                    if (timerId) clearInterval(timerId);
+
+                    updateTimerDisplay();
+                    timerId = setInterval(updateTimerDisplay, 100);
+                };
+
+                const updateTimerDisplay = () => {
+                    const remaining = timerEndTime - Date.now();
+                    const display = document.getElementById('timer-display');
+                    if (!display) return;
+
+                    if (remaining <= 0) {
+                        stopTimer();
+                        playChime();
+                    } else {
+                        const secs = Math.ceil(remaining / 1000);
+                        const m = Math.floor(secs / 60);
+                        const s = secs % 60;
+                        display.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+
+                        if (secs <= 10) {
+                            display.classList.add('urgent');
+                            if (secs <= 5) display.classList.add('timer-pulsing');
+                        } else {
+                            display.classList.remove('urgent', 'timer-pulsing');
+                        }
+                    }
+                };
+
+                const stopTimer = () => {
+                    clearInterval(timerId);
+                    timerId = null;
+                    const timerArea = document.getElementById('inline-timer');
+                    if (timerArea) timerArea.classList.add('hidden');
+                };
+
+                const playChime = () => {
+                    if (synth) {
+                        synth.triggerAttackRelease("C6", "0.1");
+                        setTimeout(() => synth.triggerAttackRelease("E6", "0.1"), 150);
+                        setTimeout(() => synth.triggerAttackRelease("G6", "0.3"), 300);
+                    }
+                };
+
+                // =============================================
+                // ARCHIVE
+                // =============================================
+                const renderArchive = () => {
+                    const container = document.getElementById('archive-log-container');
+                    container.innerHTML = '';
+                    if (!appState.archive || appState.archive.length === 0) {
+                        container.innerHTML = '<p class="text-gray-500">No archives yet.</p>';
+                        return;
+                    }
+                    appState.archive.forEach((entry, archiveIdx) => {
+                        const date = new Date(entry.date).toLocaleDateString() + ' ' + new Date(entry.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                        let ignitorHTML = '';
+                        if (entry.ignitor && Object.keys(entry.ignitor).length > 0) {
+                            ignitorHTML = '<div class="mb-3 border-b border-gray-700 pb-2"><h4 class="text-ax-blue font-bold text-xs uppercase mb-2">Ignitor Sets</h4><div class="grid grid-cols-2 gap-1.5 text-xs">';
+                            Object.keys(entry.ignitor).forEach(key => {
+                                const item = entry.ignitor[key];
+                                const label = EXERCISE_DEFS.find(e => e.id === key)?.label || key;
+                                if (item.weight || item.reps) {
+                                    ignitorHTML += `<div class="bg-gray-800 p-2 rounded flex justify-between"><span class="text-gray-400">${label}:</span><span class="text-white">${item.weight || '-'}lbs × ${item.reps || '-'}</span></div>`;
+                                }
+                            });
+                            ignitorHTML += '</div></div>';
+                        }
+
+                        let stationsHTML = '';
+                        if (entry.stations) {
+                            stationsHTML = '<div class="space-y-2">';
+                            EXERCISE_DEFS.forEach(def => {
+                                const station = entry.stations[def.id];
+                                if (!station) return;
+                                const sets = station.sets || [];
+                                const successCount = sets.filter(s => s.reps >= 10).length;
+                                const statusColor = station.status === 'completed' ? 'text-ax-green' : (station.status === 'failed' ? 'text-ax-red' : 'text-gray-400');
+                                const setsHTML = sets.map((s, i) => {
+                                    const color = s.reps >= 10 ? 'text-green-400' : 'text-red-400';
+                                    return `<span class="${color} mr-1 inline-block text-xs">S${i + 1}:${s.weight}×${s.reps}</span>`;
+                                }).join('');
+                                stationsHTML += `
+                                    <div class="bg-gray-800 p-2.5 rounded border border-gray-700">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="font-bold text-xs text-gray-300">${def.label}</span>
+                                            <span class="text-xs font-bold ${statusColor}">${station.status.toUpperCase()} (${successCount}/10)</span>
+                                        </div>
+                                        <div class="text-xs text-gray-500 flex flex-wrap">${setsHTML || '<span class="italic opacity-50">No sets logged</span>'}</div>
+                                    </div>
+                                `;
+                            });
+                            stationsHTML += '</div>';
+                        }
+
+                        container.innerHTML += `
+                            <details class="group bg-gray-900 border border-gray-700 rounded-lg overflow-hidden">
+                                <summary class="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-800 transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="bg-gray-700 rounded-full p-1 group-open:rotate-90 transition-transform">
+                                            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </div>
+                                        <span class="text-gray-200 font-medium text-sm">${date}</span>
+                                    </div>
+                                    <span class="font-bold text-ax-red text-xl">${entry.score}<span class="text-sm text-gray-500">/40</span></span>
+                                </summary>
+                                <div class="p-4 border-t border-gray-700 bg-black bg-opacity-30">
+                                    ${ignitorHTML}
+                                    ${stationsHTML}
+                                    ${(!entry.ignitor && !entry.stations) ? '<p class="text-xs text-gray-500 italic text-center py-2">No detailed data available.</p>' : ''}
+                                    <div class="mt-3 pt-3 border-t border-gray-800 text-right">
+                                        <button class="archive-delete-btn text-xs text-gray-600 hover:text-red-400 transition-colors" data-idx="${archiveIdx}">Delete</button>
+                                    </div>
+                                </div>
+                            </details>
+                        `;
+                    });
+
+                    // Attach delete handlers with confirm-tap
+                    container.querySelectorAll('.archive-delete-btn').forEach(btn => {
+                        let confirmTimer;
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (btn.classList.contains('confirm-mode')) {
+                                const idx = parseInt(btn.dataset.idx);
+                                appState.archive.splice(idx, 1);
+                                saveState();
+                                renderArchive();
+                            } else {
+                                btn.textContent = 'Confirm Delete?';
+                                btn.classList.add('confirm-mode', 'text-red-400');
+                                btn.classList.remove('text-gray-600');
+                                confirmTimer = setTimeout(() => {
+                                    btn.textContent = 'Delete';
+                                    btn.classList.remove('confirm-mode', 'text-red-400');
+                                    btn.classList.add('text-gray-600');
+                                }, 3000);
+                            }
+                        });
+                    });
+                };
+
+                // =============================================
+                // RESET / ARCHIVE WORKOUT
+                // =============================================
+                const resetWorkout = () => {
+                    appState.stations = {
+                        thrusters: { sets: [], status: 'active' },
+                        rows: { sets: [], status: 'pending' },
+                        press: { sets: [], status: 'pending' },
+                        highpull: { sets: [], status: 'pending' }
+                    };
+                    activeExId = null;
+                    selectedReps = null;
+                    stopTimer();
+                    saveState();
+                    renderStations();
+                };
+
+                window.handleArchive = () => {
+                    let totalScore = 0;
+                    Object.values(appState.stations).forEach(st => {
+                        totalScore += st.sets.filter(s => s.reps >= 10).length;
+                    });
+                    const entry = {
+                        date: Date.now(),
+                        score: totalScore,
+                        ignitor: JSON.parse(JSON.stringify(appState.ignitor)),
+                        stations: JSON.parse(JSON.stringify(appState.stations))
+                    };
+                    if (!appState.archive) appState.archive = [];
+                    appState.archive.unshift(entry);
+                    resetWorkout();
+                    document.querySelector('[data-view="archive"]').click();
+                };
+
+                // =============================================
+                // TAB SWITCHING
+                // =============================================
+                document.getElementById('workout-tabs').addEventListener('click', (e) => {
+                    if (e.target.classList.contains('tab-btn')) {
+                        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        const view = e.target.dataset.view;
+                        appState.view = view;
+
+                        if (view === 'challenge') {
+                            document.getElementById('main-workout-area').style.display = 'block';
+                            document.getElementById('controls-area').style.display = 'flex';
+                            document.querySelector('.sticky').style.display = 'block';
+                            document.getElementById('archive-log-area').style.display = 'none';
+                            document.getElementById('sticky-input-bar').classList.remove('hidden');
+                            renderStickyBar();
+                        } else {
+                            document.getElementById('main-workout-area').style.display = 'none';
+                            document.getElementById('controls-area').style.display = 'none';
+                            document.querySelector('.sticky').style.display = 'none';
+                            document.getElementById('archive-log-area').style.display = 'block';
+                            document.getElementById('sticky-input-bar').classList.add('hidden');
+                            renderArchive();
+                        }
+                        saveState();
+                    }
+                });
+
+                // =============================================
+                // IGNITOR TOGGLE
+                // =============================================
+                document.getElementById('toggle-ignitor').addEventListener('click', () => {
+                    const content = document.getElementById('ignitor-content');
+                    const text = document.getElementById('ignitor-toggle-text');
+                    content.classList.toggle('hidden');
+                    text.textContent = content.classList.contains('hidden') ? 'Show' : 'Hide';
+                });
+
+                // =============================================
+                // ARCHIVE / RESET BUTTONS
+                // =============================================
+                document.getElementById('archive-workout').addEventListener('click', window.handleArchive);
+
+                const resetBtn = document.getElementById('reset-workout');
+                let resetConfirmTimer;
+                resetBtn.addEventListener('click', () => {
+                    if (resetBtn.classList.contains('confirm-mode')) {
+                        resetWorkout();
+                        resetBtn.textContent = "Reset Data";
+                        resetBtn.classList.remove('confirm-mode', 'bg-red-600', 'text-white');
+                        resetBtn.classList.add('btn-gray');
+                        clearTimeout(resetConfirmTimer);
+                    } else {
+                        resetBtn.textContent = "Confirm Reset?";
+                        resetBtn.classList.remove('btn-gray');
+                        resetBtn.classList.add('confirm-mode', 'bg-red-600', 'text-white');
+                        resetConfirmTimer = setTimeout(() => {
+                            resetBtn.textContent = "Reset Data";
+                            resetBtn.classList.remove('confirm-mode', 'bg-red-600', 'text-white');
+                            resetBtn.classList.add('btn-gray');
+                        }, 3000);
+                    }
+                });
+
+                // =============================================
+                // INSTRUCTIONS MODAL
+                // =============================================
+                document.getElementById('open-instructions').addEventListener('click', () => {
+                    document.getElementById('instructions-modal').classList.remove('hidden');
+                });
+                document.getElementById('close-instructions').addEventListener('click', () => {
+                    document.getElementById('instructions-modal').classList.add('hidden');
+                });
+                document.getElementById('close-instructions-btn').addEventListener('click', () => {
+                    document.getElementById('instructions-modal').classList.add('hidden');
+                });
+
+                // =============================================
+                // GOOGLE AUTH (using Google Identity Services)
+                // =============================================
+                const handleGoogleCredentialResponse = async (response) => {
+                    console.log('[Auth] Got Google credential response');
+                    const authText = document.getElementById('auth-text');
+                    try {
+                        authText.textContent = 'Signing in...';
+                        const credential = GoogleAuthProvider.credential(response.credential);
+
+                        if (auth.currentUser && auth.currentUser.isAnonymous) {
+                            console.log('[Auth] Linking anonymous account with Google...');
+                            try {
+                                const result = await linkWithCredential(auth.currentUser, credential);
+                                console.log('[Auth] Link successful:', result.user.displayName);
+                                updateAuthUI(result.user);
+                            } catch (linkError) {
+                                if (linkError.code === 'auth/credential-already-in-use') {
+                                    console.log('[Auth] Credential already in use, signing in directly...');
+                                    const result = await signInWithCredential(auth, credential);
+                                    updateAuthUI(result.user);
+                                } else {
+                                    throw linkError;
+                                }
+                            }
+                        } else {
+                            console.log('[Auth] Signing in with Google credential...');
+                            const result = await signInWithCredential(auth, credential);
+                            console.log('[Auth] Sign-in successful:', result.user.displayName);
+                            updateAuthUI(result.user);
+                        }
+                    } catch (error) {
+                        console.error('[Auth] Google Auth Error:', error);
+                        console.error('[Auth] Error code:', error.code, 'Message:', error.message);
+                        authText.innerHTML = `<span class="text-red-400">Sign-in failed</span>`;
+                        setTimeout(() => { if (auth.currentUser) updateAuthUI(auth.currentUser); }, 3000);
+                    }
+                };
+
+                // Make it available globally for GIS callback
+                window._handleGoogleCredentialResponse = handleGoogleCredentialResponse;
+
+                const handleGoogleSignIn = async () => {
+                    const authText = document.getElementById('auth-text');
+
+                    // Google sign-in requires HTTP — won't work from file://
+                    if (window.location.protocol === 'file:') {
+                        authText.innerHTML = `<span class="text-yellow-500">Sign-in needs a server</span>`;
+                        const tip = document.createElement('div');
+                        tip.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 border border-yellow-600 rounded-lg p-5 z-50 text-center max-w-xs shadow-2xl';
+                        tip.innerHTML = `
+                            <p class="text-yellow-400 font-bold mb-2">Can't Sign In from file://</p>
+                            <p class="text-gray-300 text-sm mb-3">Google Sign-In requires serving from <strong>localhost</strong> or a deployed URL (like GitHub Pages).</p>
+                            <p class="text-gray-500 text-xs mb-4">You can still use the tracker offline — data just won't sync to the cloud.</p>
+                            <button class="btn-blue rounded-lg px-6 py-2 text-sm font-bold" onclick="this.parentElement.remove()">OK</button>
+                        `;
+                        document.body.appendChild(tip);
+                        return;
+                    }
+
+                    if (typeof google === 'undefined' || !google.accounts) {
+                        console.error('[Auth] Google Identity Services SDK not loaded');
+                        authText.innerHTML = `<span class="text-red-400">GIS SDK not loaded</span>`;
+                        return;
+                    }
+
+                    console.log('[Auth] Launching Google One Tap / sign-in prompt...');
+
+                    if (!GOOGLE_CLIENT_ID) {
+                        console.error('[Auth] GOOGLE_CLIENT_ID is not set.');
+                        authText.innerHTML = `<span class="text-red-400">Missing OAuth Client ID</span>`;
+                        const tip = document.createElement('div');
+                        tip.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 border border-red-600 rounded-lg p-5 z-50 text-center max-w-sm shadow-2xl';
+                        tip.innerHTML = `
+                            <p class="text-red-400 font-bold mb-2">OAuth Client ID Needed</p>
+                            <p class="text-gray-300 text-sm mb-3">Set the <code>GOOGLE_CLIENT_ID</code> constant in the code. Find it at <strong>Google Cloud Console → APIs & Services → Credentials</strong>.</p>
+                            <button class="btn-blue rounded-lg px-6 py-2 text-sm font-bold" onclick="this.parentElement.remove()">OK</button>
+                        `;
+                        document.body.appendChild(tip);
+                        return;
+                    }
+
+                    console.log('[Auth] Using client ID:', GOOGLE_CLIENT_ID);
+                    google.accounts.id.initialize({
+                        client_id: GOOGLE_CLIENT_ID,
+                        callback: handleGoogleCredentialResponse,
+                        auto_select: false,
+                        cancel_on_tap_outside: false,
+                        use_fedcm_for_prompt: true,
+                    });
+
+                    // Always show the rendered Google Sign-In button (most reliable on all devices)
+                    // Remove any existing container first
+                    document.getElementById('gsi-button-container')?.remove();
+
+                    const btnContainer = document.createElement('div');
+                    btnContainer.id = 'gsi-button-container';
+                    btnContainer.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50';
+                    btnContainer.innerHTML = `
+                        <div class="bg-gray-900 border border-gray-600 rounded-lg p-6 shadow-2xl text-center max-w-xs w-full mx-4">
+                            <p class="text-gray-300 text-sm mb-4">Sign in with your Google account</p>
+                            <div id="gsi-button" class="flex justify-center"></div>
+                            <button class="mt-4 text-gray-500 text-xs underline" onclick="document.getElementById('gsi-button-container').remove()">Cancel</button>
+                        </div>
+                    `;
+                    document.body.appendChild(btnContainer);
+                    // Also close on backdrop click
+                    btnContainer.addEventListener('click', (e) => {
+                        if (e.target === btnContainer) btnContainer.remove();
+                    });
+                    google.accounts.id.renderButton(
+                        document.getElementById('gsi-button'),
+                        { theme: 'filled_black', size: 'large', shape: 'pill', text: 'signin_with', width: 250 }
+                    );
+                };
+
+                const handleSignOut = async () => {
+                    try {
+                        if (typeof google !== 'undefined' && google.accounts) {
+                            google.accounts.id.disableAutoSelect();
+                        }
+                        await auth.signOut();
+                        await signInAnonymously(auth);
+                    } catch (error) { console.error('[Auth] Sign out error', error); }
+                };
+
+                const updateAuthUI = (user) => {
+                    const authText = document.getElementById('auth-text');
+                    const signInBtn = document.getElementById('google-sign-in');
+                    const signOutBtn = document.getElementById('google-sign-out');
+                    // Remove any lingering GIS button container
+                    document.getElementById('gsi-button-container')?.remove();
+                    if (user.isAnonymous) {
+                        authText.innerHTML = `<span class="text-yellow-500">Guest</span>`;
+                        signInBtn.classList.remove('hidden');
+                        signOutBtn.classList.add('hidden');
+                    } else {
+                        const name = user.displayName || user.email || 'User';
+                        authText.innerHTML = `<span class="text-green-500">${name}</span>`;
+                        signInBtn.classList.add('hidden');
+                        signOutBtn.classList.remove('hidden');
+                    }
+                };
+
+                document.getElementById('google-sign-in').addEventListener('click', handleGoogleSignIn);
+                document.getElementById('google-sign-out').addEventListener('click', handleSignOut);
+
+                // =============================================
+                // AUDIO INIT
+                // =============================================
+                const initAudio = async () => {
+                    if (Tone.context.state !== 'running') await Tone.start();
+                    if (!synth) synth = new Tone.Synth().toDestination();
+                };
+                document.body.addEventListener('click', initAudio, { once: true });
+                document.body.addEventListener('touchstart', initAudio, { once: true });
+
+                // =============================================
+                // FIREBASE INIT
+                // =============================================
+                const isCanvasEnv = typeof __firebase_config !== 'undefined';
+                let firebaseConfig;
+
+                if (isCanvasEnv) {
+                    firebaseConfig = JSON.parse(__firebase_config);
+                } else {
+                    if (!MANUAL_FIREBASE_CONFIG.apiKey) {
+                        document.getElementById('setup-modal').classList.remove('hidden');
+                        document.getElementById('auth-status').textContent = "Config Missing";
+                        return;
+                    }
+                    firebaseConfig = MANUAL_FIREBASE_CONFIG;
+                }
+
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'public-tracker';
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+
+
+                onAuthStateChanged(auth, async (user) => {
+                    // Always clean up previous Firestore listener before setting up a new one
+                    unsubscribe();
+                    if (user) {
+                        userId = user.uid;
+                        updateAuthUI(user);
+                        dbDocRef = doc(db, `artifacts/${appId}/users/${userId}/jacked-challenge/ten-by-400`);
+                        unsubscribe = onSnapshot(dbDocRef, (docSnap) => {
+                            if (docSnap.exists()) {
+                                const data = docSnap.data();
+                                appState = { ...appState, ...data };
+                                renderIgnitor();
+                                renderStations();
+                                if (appState.view === 'archive') {
+                                    document.querySelector('[data-view="archive"]').click();
+                                }
+                            } else {
+                                saveState();
+                                renderIgnitor();
+                                renderStations();
+                            }
+                        }, (error) => {
+                            console.error("Snapshot error:", error);
+                            document.getElementById('auth-text').innerHTML = `<span class="text-red-400">⚠ Offline</span>`;
+                            // Still render UI from local state
+                            renderIgnitor();
+                            renderStations();
+                        });
+                    } else {
+                        document.getElementById('auth-text').textContent = "Authenticating...";
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            try {
+                                await signInAnonymously(auth);
+                            } catch (err) {
+                                console.error("Auth Error:", err);
+                                document.getElementById('auth-text').innerHTML = `<span class="text-yellow-500">⚠ Not connected</span>`;
+                                document.getElementById('google-sign-in').classList.remove('hidden');
+                                // Render the UI anyway from default local state
+                                renderIgnitor();
+                                renderStations();
+                            }
+                        }
+                    }
+                });
+
+            } catch (e) {
+                console.error("Initialization Failed:", e);
+                document.getElementById('auth-text').innerHTML = `<span class="text-yellow-500">⚠ Not connected</span>`;
+                if (e.code === 'app/no-app') {
+                    document.getElementById('setup-modal').classList.remove('hidden');
+                }
+                // Render the UI anyway from default local state
+                renderIgnitor();
+                renderStations();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', startApp);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,542 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap");
+
+/* ====== CSS RESET & GLOBALS ====== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Dark theme palette */
+  --bg-primary: #020617;
+  --bg-secondary: #0f172a;
+  --bg-card: #1e293b;
+  --bg-card-hover: #293548;
+  --bg-input: #0f172a;
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+  --text-dim: #334155;
+
+  --accent-orange: #f97316;
+  --accent-orange-hover: #fb923c;
+  --accent-red: #ef4444;
+  --accent-green: #22c55e;
+  --accent-blue: #38bdf8;
+  --accent-purple: #a78bfa;
+  --accent-yellow: #facc15;
+
+  --border-color: #1e293b;
+  --border-hover: #334155;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  --shadow-glow: 0 0 40px -10px;
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html {
+  font-family:
+    "Outfit",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* ====== SCROLLBAR ====== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border-radius: 3px;
+}
+
+/* ====== SHARED HEADER ====== */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(2, 6, 23, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-header .logo {
+  font-weight: 900;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.app-header .logo span {
+  color: var(--accent-orange);
+}
+
+/* ====== AUTH BUTTON ====== */
+.auth-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.btn-sign-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  color: #333;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-sign-in:hover {
+  background: #e2e8f0;
+}
+
+.btn-sign-out {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color var(--transition);
+}
+.btn-sign-out:hover {
+  color: var(--text-secondary);
+}
+
+/* ====== BACK BUTTON ====== */
+.btn-back {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color var(--transition);
+}
+.btn-back:hover {
+  color: var(--text-primary);
+}
+
+/* ====== BUTTONS ====== */
+.btn-primary {
+  background: var(--accent-orange);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 14px 24px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all var(--transition);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: 0.02em;
+}
+.btn-primary:hover {
+  background: var(--accent-orange-hover);
+}
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  padding: 12px 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* ====== FORM INPUTS ====== */
+.form-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 1rem;
+  font-family: "Outfit", sans-serif;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.form-input:focus {
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+}
+
+/* ====== HUB CHALLENGE CARDS ====== */
+.challenge-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 28px 24px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.challenge-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--card-accent), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.challenge-card:hover {
+  border-color: var(--card-accent, var(--accent-orange));
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-glow) var(--card-accent, var(--accent-orange));
+}
+.challenge-card:hover::before {
+  opacity: 1;
+}
+.challenge-card:active {
+  transform: translateY(-2px) scale(0.99);
+}
+
+.challenge-card .title {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.challenge-card .subtitle {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.challenge-card .arrow {
+  position: absolute;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  transition: all var(--transition);
+}
+.challenge-card:hover .arrow {
+  color: var(--card-accent, var(--accent-orange));
+  transform: translateY(-50%) translateX(4px);
+}
+
+/* ====== WORKOUT COMMON ====== */
+.section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.scoreboard {
+  position: sticky;
+  top: 49px;
+  z-index: 20;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ====== PROGRESS DOTS ====== */
+.progress-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--text-dim);
+  background: var(--bg-secondary);
+  transition: all 0.3s;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+.progress-dot.success {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+}
+.progress-dot.fail {
+  background: var(--accent-red);
+  border-color: var(--accent-red);
+}
+.progress-dot.retry {
+  background: var(--accent-yellow);
+  border-color: var(--accent-yellow);
+}
+
+@keyframes dot-swell {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.8);
+  }
+  15% {
+    transform: scale(2.2);
+    box-shadow: 0 0 30px 10px rgba(34, 197, 94, 0.6);
+  }
+  30% {
+    transform: scale(1.6);
+  }
+  45% {
+    transform: scale(1.9);
+    box-shadow: 0 0 25px 8px rgba(34, 197, 94, 0.3);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.progress-dot.swell {
+  animation: dot-swell 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  z-index: 5;
+}
+
+/* ====== TIMER ====== */
+.timer-display {
+  font-size: 4rem;
+  font-weight: 700;
+  font-family: "Outfit", monospace;
+  color: var(--accent-blue);
+  line-height: 1.1;
+  transition: color 0.3s;
+}
+.timer-display.urgent {
+  color: var(--accent-red);
+}
+@keyframes timer-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+.timer-display.pulsing {
+  animation: timer-pulse 1s ease-in-out infinite;
+}
+
+/* ====== STICKY INPUT BAR ====== */
+.sticky-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: rgba(2, 6, 23, 0.97);
+  border-top: 1px solid var(--accent-blue);
+  padding: 12px 16px 16px;
+  backdrop-filter: blur(10px);
+}
+
+/* ====== STEPPER BUTTONS ====== */
+.stepper-btn {
+  width: 40px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.stepper-btn:active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+/* ====== REP BUTTONS ====== */
+.rep-btn {
+  min-width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 2px solid var(--text-dim);
+  color: var(--text-secondary);
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex: 1 1 auto;
+}
+.rep-btn:active,
+.rep-btn.selected {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #fff;
+}
+.rep-btn.success-rep {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: var(--accent-green);
+}
+.rep-btn.success-rep.selected,
+.rep-btn.success-rep:active {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  color: #fff;
+}
+
+/* ====== ANIMATIONS ====== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* ====== TAG / BADGE ====== */
+.path-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+
+.path-tag.jacked-up {
+  color: var(--accent-purple);
+  border-color: rgba(167, 139, 250, 0.3);
+  background: rgba(167, 139, 250, 0.1);
+}
+.path-tag.jacked {
+  color: var(--accent-green);
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+}
+.path-tag.jacked-down {
+  color: var(--accent-yellow);
+  border-color: rgba(250, 204, 21, 0.3);
+  background: rgba(250, 204, 21, 0.1);
+}
+.path-tag.hll {
+  color: var(--accent-red);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* ====== RESPONSIVE ====== */
+@media (max-width: 430px) {
+  .progress-dot {
+    width: 20px;
+    height: 20px;
+  }
+  .timer-display {
+    font-size: 3rem;
+  }
+  .rep-btn {
+    height: 48px;
+    min-width: 44px;
+    font-size: 1.1rem;
+  }
+}
+
+@media (min-width: 800px) and (orientation: landscape) {
+  .sticky-bar {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    left: auto;
+    width: 320px;
+    border-top: none;
+    border-left: 1px solid var(--accent-blue);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+}
