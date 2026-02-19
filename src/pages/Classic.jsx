@@ -74,6 +74,7 @@ const playTimerBeep = () => {
 
 const DEFAULT_STATE = {
   phase: 'MENU',
+  menuTab: 'today',
   selectedDay: null,
   ignitorData: {},
   activeExercises: [],
@@ -82,7 +83,7 @@ const DEFAULT_STATE = {
   round: 1,
   eliminatedList: [],
   lastReps: {},
-  history: [],
+  archive: [],
 };
 
 export default function Classic() {
@@ -95,6 +96,7 @@ export default function Classic() {
 
   const {
     phase = 'MENU',
+    menuTab = 'today',
     selectedDay,
     ignitorData = {},
     activeExercises = [],
@@ -103,7 +105,7 @@ export default function Classic() {
     round = 1,
     eliminatedList = [],
     lastReps = {},
-    history = [],
+    archive = [],
   } = appState;
 
   // Timer logic
@@ -124,13 +126,32 @@ export default function Classic() {
     window.scrollTo(0, 0);
   }, [phase]);
 
+  // --- Helpers ---
+  // Get last archive entry for a given day
+  const getLastSessionForDay = (day) => {
+    return archive.find(h => h.day === day) || null;
+  };
+
   // --- Handlers ---
   const setPhase = (p) => setAppState(prev => ({ ...prev, phase: p }));
 
   const handleStartIgnitor = (day) => {
+    const lastSession = getLastSessionForDay(day);
     const initialData = {};
     WORKOUT_DATA[day].forEach(ex => {
-      initialData[ex.id] = { weight: '', reps: '', path: 'Jacked', threshold: 6 };
+      const prev = lastSession?.ignitor?.[ex.id];
+      if (prev?.weight || prev?.reps) {
+        // Pre-fill with last session values
+        const { path, threshold } = getPathDetails(prev.reps);
+        initialData[ex.id] = {
+          weight: prev.weight || '',
+          reps: prev.reps || '',
+          path,
+          threshold,
+        };
+      } else {
+        initialData[ex.id] = { weight: '', reps: '', path: 'Jacked', threshold: 6 };
+      }
     });
     setAppState(prev => ({
       ...prev,
@@ -159,6 +180,21 @@ export default function Classic() {
     const val = currentVal === '' ? 0 : parseInt(currentVal);
     const newVal = Math.max(0, val + amount);
     handleIgnitorChange(id, field, newVal.toString());
+  };
+
+  const copyLastSession = (id, prevData) => {
+    setAppState(prev => {
+      const newData = { ...prev.ignitorData };
+      const { path, threshold } = getPathDetails(prevData.reps);
+      newData[id] = {
+        ...newData[id],
+        weight: prevData.weight || '',
+        reps: prevData.reps || '',
+        path,
+        threshold,
+      };
+      return { ...prev, ignitorData: newData };
+    });
   };
 
   const startChallenge = () => {
@@ -278,10 +314,10 @@ export default function Classic() {
     }
   };
 
-  const saveToHistory = () => {
+  const archiveAndReset = () => {
     setAppState(prev => ({
       ...prev,
-      history: [
+      archive: [
         {
           date: Date.now(),
           day: prev.selectedDay,
@@ -290,16 +326,10 @@ export default function Classic() {
           eliminated: prev.eliminatedList,
           ignitor: JSON.parse(JSON.stringify(prev.ignitorData)),
         },
-        ...(prev.history || []),
+        ...(prev.archive || []),
       ],
-    }));
-  };
-
-  const resetApp = () => {
-    saveToHistory();
-    setAppState(prev => ({
-      ...prev,
       phase: 'MENU',
+      menuTab: 'today',
       selectedDay: null,
       ignitorData: {},
       activeExercises: [],
@@ -308,6 +338,13 @@ export default function Classic() {
       round: 1,
       eliminatedList: [],
       lastReps: {},
+    }));
+  };
+
+  const deleteArchiveEntry = (idx) => {
+    setAppState(prev => ({
+      ...prev,
+      archive: prev.archive.filter((_, i) => i !== idx),
     }));
   };
 
@@ -323,8 +360,8 @@ export default function Classic() {
   // ============ MENU ============
   if (phase === 'MENU') {
     return (
-      <div className="animate-in" style={{ minHeight: 'calc(100vh - 50px)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+      <div className="animate-in" style={{ minHeight: 'calc(100vh - 50px)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 24 }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <h1 style={{ fontSize: '2.2rem', fontWeight: 900, fontStyle: 'italic', letterSpacing: '-0.03em', color: 'var(--accent-orange)', marginBottom: 4 }}>
             JACKED
           </h1>
@@ -333,57 +370,123 @@ export default function Classic() {
           </h2>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 380 }}>
-          {['PULL', 'PUSH', 'LEGS'].map(day => (
+        {/* Tabs */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20, width: '100%', maxWidth: 380 }}>
+          {['today', 'archive'].map(tab => (
             <button
-              key={day}
-              onClick={() => handleStartIgnitor(day)}
+              key={tab}
+              onClick={() => setAppState(prev => ({ ...prev, menuTab: tab }))}
               style={{
-                background: 'var(--bg-card)',
-                border: '2px solid var(--border-color)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '20px 20px',
-                color: 'var(--text-primary)',
-                fontSize: '1.2rem',
-                fontWeight: 800,
+                padding: '10px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid',
+                borderColor: menuTab === tab ? 'var(--accent-orange)' : 'var(--text-dim)',
+                background: menuTab === tab ? 'var(--accent-orange)' : 'var(--bg-card)',
+                color: menuTab === tab ? '#fff' : 'var(--text-secondary)',
+                fontWeight: 700,
+                fontSize: '0.8rem',
                 cursor: 'pointer',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                transition: 'all 0.2s',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-orange)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.transform = 'none'; }}
             >
-              <span>{day} DAY</span>
-              <span style={{ color: 'var(--accent-orange)' }}>→</span>
+              {tab === 'today' ? 'Start Session' : `Archive${archive.length > 0 ? ` (${archive.length})` : ''}`}
             </button>
           ))}
         </div>
 
-        {/* History link */}
-        {history.length > 0 && (
-          <div style={{ marginTop: 32, width: '100%', maxWidth: 380 }}>
-            <details style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-              <summary style={{ padding: 12, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', listStyle: 'none' }}>
-                📊 Past Results ({history.length})
-              </summary>
-              <div style={{ padding: '0 12px 12px' }}>
-                {history.slice(0, 10).map((h, i) => {
-                  const rank = getRank(h.score);
-                  return (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border-color)', fontSize: '0.75rem' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>
-                        {h.day} — {new Date(h.date).toLocaleDateString()}
+        {/* TODAY tab */}
+        {menuTab === 'today' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 380 }}>
+            {['PULL', 'PUSH', 'LEGS'].map(day => {
+              const lastSession = getLastSessionForDay(day);
+              return (
+                <button
+                  key={day}
+                  onClick={() => handleStartIgnitor(day)}
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: '2px solid var(--border-color)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '18px 20px',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    transition: 'all 0.2s',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-orange)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.transform = 'none'; }}
+                >
+                  <div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>{day} DAY</div>
+                    {lastSession && (
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                        Last: {new Date(lastSession.date).toLocaleDateString()} — {lastSession.score} pts ({getRank(lastSession.score).title})
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ color: 'var(--accent-orange)', fontSize: '1.2rem' }}>→</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ARCHIVE tab */}
+        {menuTab === 'archive' && (
+          <div style={{ width: '100%', maxWidth: 380 }}>
+            {archive.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', marginTop: 16 }}>No sessions archived yet.</p>
+            ) : (
+              archive.map((h, i) => {
+                const rank = getRank(h.score);
+                return (
+                  <details
+                    key={i}
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 8 }}
+                  >
+                    <summary style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', cursor: 'pointer', listStyle: 'none' }}>
+                      <div>
+                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{h.day} DAY</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginLeft: 8 }}>
+                          {new Date(h.date).toLocaleDateString()} {new Date(h.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <span style={{ fontWeight: 800, color: rank.color, fontSize: '1rem' }}>
+                        {h.score} <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{rank.title}</span>
                       </span>
-                      <span style={{ fontWeight: 800, color: rank.color }}>
-                        {h.score} ({rank.title})
-                      </span>
+                    </summary>
+                    <div style={{ padding: '0 14px 12px', borderTop: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: 8, paddingTop: 8 }}>
+                        Round {h.round} · {h.eliminated?.length || 0} exercises eliminated
+                      </div>
+                      {h.ignitor && WORKOUT_DATA[h.day]?.map(ex => {
+                        const ig = h.ignitor[ex.id];
+                        if (!ig) return null;
+                        return (
+                          <div key={ex.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', padding: '5px 0', borderBottom: '1px solid var(--border-color)' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>{ex.base}</span>
+                            <span style={{ fontFamily: 'monospace', color: 'var(--text-primary)', fontWeight: 700 }}>
+                              {ig.weight || '—'}lbs × {ig.reps || '—'}
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 4 }}>({ig.path})</span>
+                            </span>
+                          </div>
+                        );
+                      })}
+                      <button
+                        onClick={() => { if (window.confirm('Delete this session?')) deleteArchiveEntry(i); }}
+                        style={{ fontSize: '0.65rem', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 10, textDecoration: 'underline', padding: 0 }}
+                      >
+                        Delete
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
-            </details>
+                  </details>
+                );
+              })
+            )}
           </div>
         )}
       </div>
@@ -392,6 +495,8 @@ export default function Classic() {
 
   // ============ IGNITOR ============
   if (phase === 'IGNITOR') {
+    const lastSession = getLastSessionForDay(selectedDay);
+
     return (
       <div className="animate-in" style={{ minHeight: 'calc(100vh - 50px)', paddingBottom: 100 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 16, position: 'sticky', top: 49, zIndex: 10, background: 'rgba(2,6,23,0.95)', backdropFilter: 'blur(8px)', borderBottom: '1px solid var(--border-color)' }}>
@@ -402,7 +507,7 @@ export default function Classic() {
         <div style={{ padding: '16px', maxWidth: 600, margin: '0 auto' }}>
           <div className="section-card" style={{ marginBottom: 16 }}>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
-              Set your Base Weight & Max Reps. This determines your Path and X-tinction Threshold.
+              Set your Base Weight &amp; Max Reps. This determines your Path and X-tinction Threshold.
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent-orange)', fontWeight: 600, fontSize: '0.8rem' }}>
               ⏱ Rest 2 minutes between each ignitor set.
@@ -412,10 +517,31 @@ export default function Classic() {
           {WORKOUT_DATA[selectedDay].map(ex => {
             const data = ignitorData[ex.id] || { path: 'Jacked', threshold: 6 };
             const pathClass = PATH_COLORS[data.path] || 'jacked';
+            const prevData = lastSession?.ignitor?.[ex.id];
+            // Show copy button only if current values differ from last session
+            const isDifferent = prevData && (data.weight !== prevData.weight || data.reps !== prevData.reps);
+
             return (
               <div key={ex.id} className="section-card" style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 800, lineHeight: 1.2, width: '65%' }}>{ex.base}</h3>
+                  <div style={{ width: '65%' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, lineHeight: 1.2 }}>{ex.base}</h3>
+                    {prevData && (prevData.weight || prevData.reps) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                          Last: {prevData.weight || '—'}lbs × {prevData.reps || '—'}
+                        </span>
+                        {isDifferent && (
+                          <button
+                            onClick={() => copyLastSession(ex.id, prevData)}
+                            style={{ fontSize: '0.6rem', color: 'var(--accent-blue)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 700 }}
+                          >
+                            Copy ↗
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div style={{ textAlign: 'right' }}>
                     <span className={`path-tag ${pathClass}`}>{data.path}</span>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 4 }}>Threshold: {data.threshold}</div>
@@ -678,8 +804,8 @@ export default function Classic() {
           ))}
         </div>
 
-        <button onClick={resetApp} className="btn-secondary" style={{ width: '100%', maxWidth: 340, padding: 14 }}>
-          🔄 Play Again
+        <button onClick={archiveAndReset} className="btn-secondary" style={{ width: '100%', maxWidth: 340, padding: 14 }}>
+          🔄 Save &amp; Play Again
         </button>
       </div>
     );
